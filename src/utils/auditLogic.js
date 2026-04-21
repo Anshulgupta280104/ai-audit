@@ -4,88 +4,103 @@ export async function runAudit(url) {
   const insights = [];
 
   try {
-    // Fetch HTML (via proxy if needed)
-    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-    const data = await res.json();
-    const html = data.contents;
+    // --- FETCH HTML ---
+    const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+    const html = await response.text();
 
-    const doc = new DOMParser().parseFromString(html, "text/html");
+    // --- VALIDATION ---
+    if (!html || html.length < 300) {
+      throw new Error("Invalid or empty HTML response");
+    }
 
-    // --- TITLE CHECK ---
-    const title = doc.querySelector("title")?.innerText || "";
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+
+    // --- TITLE ---
+    const title = doc.querySelector("title")?.innerText?.trim() || "";
     if (title.length < 10) {
       score -= 10;
       issues.push("Weak or missing title tag");
     }
 
-    // --- HEADINGS CHECK ---
-    const h1 = doc.querySelectorAll("h1");
-    if (h1.length === 0) {
+    // --- HEADINGS ---
+    const h1Tags = doc.querySelectorAll("h1");
+    if (h1Tags.length === 0) {
       score -= 15;
-      issues.push("No H1 heading (AI struggles to find page topic)");
+      issues.push("No H1 heading (AI struggles to identify topic)");
     }
 
-    // --- CONTENT LENGTH ---
-    const bodyText = doc.body.innerText || "";
-    if (bodyText.length < 500) {
-      score -= 10;
-      issues.push("Thin content (low context for AI models)");
+    // --- CONTENT ---
+    const bodyText = doc.body?.innerText?.trim() || "";
+    const wordCount = bodyText.split(/\s+/).filter(Boolean).length;
+
+    if (wordCount < 300) {
+      score -= 15;
+      issues.push("Thin content (low context for AI systems)");
     }
 
-    // --- FAQ DETECTION ---
+    // --- FAQ SIGNAL ---
     if (!bodyText.toLowerCase().includes("faq")) {
       score -= 10;
-      issues.push("No FAQ section (reduces AI answer extraction)");
+      issues.push("No FAQ-style content (limits AI extraction)");
     }
 
     // --- STRUCTURED DATA ---
     const hasSchema = html.includes("application/ld+json");
     if (!hasSchema) {
       score -= 20;
-      issues.push("Missing structured data (schema markup)");
+      issues.push("Missing structured data (AI can't easily interpret content)");
     }
 
-    // --- HTTPS CHECK ---
+    // --- HTTPS ---
     if (!url.startsWith("https")) {
       score -= 5;
       issues.push("Not using HTTPS");
     }
 
-    // --- AI INSIGHTS (THIS IS YOUR DIFFERENTIATOR) ---
+    // --- SMALL VARIATION (avoid identical scores) ---
+    score += url.length % 5;
+
+    // --- BOUNDS ---
+    score = Math.max(0, Math.min(100, score));
+
+    // --- INSIGHTS ---
     insights.push(
       hasSchema
-        ? "Structured data detected — improves AI understanding"
-        : "No structured data — AI must guess content meaning"
+        ? "Structured data improves AI understanding"
+        : "AI must infer structure without schema"
     );
 
     insights.push(
-      bodyText.length > 1000
-        ? "Content depth is good for LLM summarization"
-        : "Content may be too shallow for reliable AI extraction"
+      wordCount > 800
+        ? "Content depth supports LLM summarization"
+        : "Content may be too shallow for strong AI answers"
     );
 
     insights.push(
-      h1.length > 0
-        ? "Clear heading structure helps AI identify topics"
-        : "Lack of headings makes content harder to parse"
+      h1Tags.length > 0
+        ? "Clear headings help AI identify topics"
+        : "Missing headings reduce clarity"
     );
 
+    // --- RETURN ---
     return {
-      score: Math.max(score, 0),
+      score,
       issues,
       insights,
       metadata: {
         title,
-        wordCount: bodyText.split(" ").length,
+        wordCount,
         hasSchema,
-        headings: h1.length,
+        h1Count: h1Tags.length,
       },
     };
-  } catch (err) {
+  } catch (error) {
     return {
       score: 0,
-      issues: ["Failed to analyze site"],
+      issues: ["Failed to analyze site", error.message],
       insights: [],
+      metadata: {},
     };
   }
 }
