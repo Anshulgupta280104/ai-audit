@@ -1,23 +1,29 @@
-import logo from './logo.svg';
-import './App.css';
+import { useState } from "react";
+import AuditForm from "./components/AuditForm";
+import AuditResult from "./components/AuditResult";
+import { runAudit } from "./utils/auditLogic";
+
+<div style={{
+  padding: "40px",
+  fontFamily: "Arial",
+  maxWidth: "600px",
+  margin: "auto"
+}}></div>
 
 function App() {
+  const [result, setResult] = useState(null);
+
+  const handleAudit = (url) => {
+    const data = runAudit(url);
+    setResult(data);
+  };
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div>
+      <h1>AI Readiness Audit</h1>
+
+      <AuditForm onAudit={handleAudit} />
+      <AuditResult result={result} />
     </div>
   );
 }
