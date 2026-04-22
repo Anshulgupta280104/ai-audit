@@ -2,20 +2,22 @@
 
 ## 🧠 The Shift
 
-We are entering a phase where **AI systems are becoming the primary interface to the internet**.
+AI systems are increasingly acting as intermediaries between users and the web.
 
-Users are no longer just:
-- Browsing websites  
-- Clicking links  
+Users are no longer only:
 
-They are:
-- Asking AI for answers  
-- Relying on summaries  
-- Trusting machine-curated outputs  
+* Browsing websites
+* Clicking links
 
-👉 This creates a new requirement:
+They are also:
 
-> Websites must now be structured not just for humans or search engines — but for AI systems.
+* Asking AI for answers
+* Consuming summarized content
+* Relying on machine-generated responses
+
+👉 This introduces a new requirement:
+
+> Websites should be structured not only for humans or search engines, but also for AI systems.
 
 ---
 
@@ -23,80 +25,142 @@ They are:
 
 **AI Readiness Audit** is a lightweight prototype that evaluates how well a website is structured for:
 
-- Large Language Models (LLMs)  
-- Search copilots  
-- AI agents  
+* Large Language Models (LLMs)
+* Search copilots
+* Automated agents
 
-It simulates how "understandable" and "extractable" a site is for machines.
+It provides a simple estimate of how easily a site can be understood and processed by machines.
 
 ---
 
 ## ⚙️ What This Prototype Does
 
-- Accepts a **URL input**
-- Generates a **mock AI Readiness Score (0–100)**
-- Breaks down results into:
-  - Structure quality  
-  - Content clarity  
-  - Machine interpretability  
-- Provides **actionable recommendations**
+* Accepts a **URL input**
+* Fetches HTML via a backend proxy
+* Generates an **AI Readiness Score (0–100)**
+* Breaks down results into:
 
-> This is intentionally heuristic-driven — focused on **thinking, not crawling**.
+  * Structural quality
+  * Content depth
+  * Machine interpretability
+* Provides basic, actionable insights
+
+> The approach is heuristic-based and focuses on structural signals rather than full crawling.
 
 ---
 
 ## 🎯 Why This Exists
 
-Most tools today optimize for:
-- SEO rankings  
-- Performance metrics  
+Most existing tools focus on:
 
-Very few optimize for:
+* SEO optimization
+* Performance metrics
 
-> ❗ “Can an AI system understand and reliably use this website?”
+Fewer tools consider:
 
-This project explores that gap.
+> ❗ Whether an AI system can reliably interpret and use the content of a website.
+
+This project explores that gap using simple, transparent rules.
 
 ---
 
 ## 🏗 Design Philosophy
 
-### 1. Think Before Scale
-No scraping. No ML.
+### 1. Keep It Simple
 
-Just:
-- Clear assumptions  
-- Practical heuristics  
-- Product-first thinking  
+No crawling or heavy processing.
 
----
+Only:
 
-### 2. UX Over Complexity
-The goal is not to compute more —  
-It’s to **communicate insights clearly**.
+* Clear assumptions
+* Practical checks
+* Deterministic scoring
 
 ---
 
-### 3. Built to Evolve
-This can naturally extend into:
+### 2. Focus on Clarity
 
-- Real-time site parsing  
-- LLM-based evaluation  
-- Structured data validation  
-- AI visibility scoring systems  
+The goal is not complexity, but **useful feedback**.
+
+Results are designed to be easy to understand and act upon.
+
+---
+
+### 3. Designed for Extension
+
+This prototype can be extended with:
+
+* Headless browser rendering (Puppeteer)
+* LLM-based evaluation
+* Structured data validation
+* Advanced content analysis
 
 ---
 
 ## 🛠 Tech Stack
 
-- React (Create React App)
-- JavaScript (ES6+)
-- CSS
+* React (Create React App)
+* Node.js + Express (backend proxy)
+* JavaScript (ES6+)
+* DOMParser (HTML parsing)
 
 ---
 
 ## 📦 How to Run
 
+### Install dependencies
+
 ```bash
 npm install
+```
+
+---
+
+### Start frontend
+
+```bash
 npm start
+```
+
+Open:
+
+```
+http://localhost:3000
+```
+
+---
+
+### Start backend
+
+```bash
+npm run server
+```
+
+Runs on:
+
+```
+http://localhost:5000
+```
+
+---
+
+## ⚠️ Limitations
+
+* Does not execute JavaScript (no full browser rendering)
+* Results may be incomplete for SPA-based websites
+* Some websites block automated requests
+
+---
+
+## 📌 Example URLs
+
+Recommended:
+
+* https://example.com
+* https://wikipedia.org
+
+---
+
+## 👤 Author
+
+Anshul Gupta
