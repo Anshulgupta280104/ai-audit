@@ -15,8 +15,8 @@ import { runAudit } from "./utils/auditLogic";
 function App() {
   const [result, setResult] = useState(null);
 
-  const handleAudit = (url) => {
-    const data = runAudit(url);
+  const handleAudit = async(url) => {
+   const data = await runAudit(url);
     setResult(data);
   };
 

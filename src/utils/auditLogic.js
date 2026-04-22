@@ -3,17 +3,36 @@ export async function runAudit(url) {
   const issues = [];
   const insights = [];
 
-  try {
-    // --- FETCH HTML ---
-    const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-    const html = await response.text();
+   function normalizeUrl(input) {
+    if (!input.startsWith("http://") && !input.startsWith("https://")) {
+      return "https://" + input;
+    }
+    return input;
+  }
 
-    // --- BASIC VALIDATION ---
-    if (!html || html.length < 1000) {
+  try {
+    // --- FETCH ---
+    const response = await fetch(
+  `http://localhost:5000/fetch-html?url=${encodeURIComponent(url)}`
+);
+const html = await response.text();
+
+    // --- HARD FAIL DETECTION (REAL FIX) ---
+    const lowerHtml = html.toLowerCase();
+
+    const isBlocked =
+      !html ||
+      html.length < 800 ||
+      lowerHtml.includes("enable javascript") ||
+      lowerHtml.includes("access denied") ||
+      lowerHtml.includes("captcha") ||
+      lowerHtml.includes("cloudflare");
+
+    if (isBlocked) {
       return {
-        score: 40,
-        issues: ["Limited HTML access (blocked or JS-heavy site)"],
-        insights: ["Client-side audits cannot fully analyze dynamic websites"],
+        score: 50,
+        issues: ["Site blocked or heavily JS-rendered (incomplete HTML)"],
+        insights: ["Client-side audit cannot fully evaluate this site"],
         metadata: {},
       };
     }
@@ -21,121 +40,131 @@ export async function runAudit(url) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
 
-    // --- DETECT JS-HEAVY SITE ---
+    if (!doc.body) {
+      return {
+        score: 50,
+        issues: ["Invalid HTML structure"],
+        insights: ["Parsing failed due to malformed content"],
+        metadata: {},
+      };
+    }
+
+    // --- SAFE PENALTY SYSTEM ---
+    let penalty = 0;
+
+    // --- SPA DETECTION ---
     const isLikelySPA =
       html.includes('id="root"') ||
-      html.includes('id="__next"') ||
-      html.length < 2000;
+      html.includes('id="__next"');
 
     if (isLikelySPA) {
-      score -= 20;
-      issues.push("Site is JS-rendered (limited audit visibility)");
+      penalty += 10;
+      issues.push("JS-rendered site (limited audit visibility)");
     }
 
     // --- TITLE ---
     const title = doc.querySelector("title")?.innerText?.trim() || "";
     if (title.length < 10) {
-      score -= 10;
-      issues.push("Weak or missing title tag");
+      penalty += 8;
+      issues.push("Weak or missing title");
     }
 
-    // --- META DESCRIPTION ---
+    // --- META ---
     const metaDesc = doc.querySelector('meta[name="description"]')?.content || "";
     if (metaDesc.length < 50) {
-      score -= 10;
-      issues.push("Missing or weak meta description");
+      penalty += 8;
+      issues.push("Weak meta description");
     }
 
     // --- HEADINGS ---
     const h1Tags = doc.querySelectorAll("h1");
     if (h1Tags.length === 0) {
-      score -= 15;
-      issues.push("No H1 heading (AI struggles to identify topic)");
+      penalty += 10;
+      issues.push("Missing H1");
     }
 
     // --- CONTENT ---
-    const bodyText = doc.body?.innerText?.trim() || "";
+    const bodyText = doc.body.innerText || "";
     const wordCount = bodyText.split(/\s+/).filter(Boolean).length;
 
     if (wordCount < 300) {
-      score -= 15;
-      issues.push("Thin content (low context for AI systems)");
+      penalty += 10;
+      issues.push("Thin content");
     }
 
-    // --- RELAXED CONTENT CHECK (instead of strict FAQ) ---
     if (bodyText.length < 500) {
-      score -= 10;
-      issues.push("Low informational content");
+      penalty += 6;
+      issues.push("Low informational depth");
     }
 
     // --- STRUCTURED DATA ---
     const hasSchema = !!doc.querySelector('script[type="application/ld+json"]');
     if (!hasSchema) {
-      score -= 20;
-      issues.push("Missing structured data (AI can't easily interpret content)");
+      penalty += 10;
+      issues.push("No structured data");
     }
 
-    // --- IMAGES ALT TEXT ---
+    // --- IMAGES ---
     const images = doc.querySelectorAll("img");
     let missingAlt = 0;
+
     images.forEach(img => {
       if (!img.alt) missingAlt++;
     });
 
     if (images.length > 0 && missingAlt / images.length > 0.5) {
-      score -= 10;
-      issues.push("Many images missing alt text (reduces AI understanding)");
+      penalty += 6;
+      issues.push("Images missing alt text");
     }
 
     // --- LINKS ---
     const links = doc.querySelectorAll("a");
     if (links.length < 5) {
-      score -= 5;
-      issues.push("Low internal linking (limits AI navigation)");
+      penalty += 4;
+      issues.push("Low internal linking");
     }
 
     // --- HTTPS ---
     if (!url.startsWith("https")) {
-      score -= 5;
-      issues.push("Not using HTTPS");
+      penalty += 5;
+      issues.push("Not HTTPS");
     }
 
-    // --- SMALL VARIATION ---
-    score += url.length % 5;
+    // --- APPLY PENALTY (CONTROLLED) ---
+    score = 100 - penalty;
 
-    // --- FALLBACK FIX (CRITICAL) ---
-    if (score < 20 && html.length > 1000) {
-      score = 55;
-      insights.push("Score adjusted due to limited parsing capability");
+    // --- SAFETY FLOOR (IMPORTANT) ---
+    if (score < 40) {
+      score = 45;
+      insights.push("Score normalized due to limited audit reliability");
     }
 
-    // --- BOUNDS ---
+    // --- FINAL BOUNDS ---
     score = Math.max(0, Math.min(100, score));
 
     // --- INSIGHTS ---
     insights.push(
       hasSchema
-        ? "Structured data improves AI understanding"
+        ? "Structured data helps AI systems"
         : "AI must infer structure without schema"
     );
 
     insights.push(
       wordCount > 800
-        ? "Content depth supports LLM summarization"
-        : "Content may be too shallow for strong AI answers"
+        ? "Good content depth for LLMs"
+        : "Content depth is limited"
     );
 
     insights.push(
       h1Tags.length > 0
-        ? "Clear headings help AI identify topics"
-        : "Missing headings reduce clarity"
+        ? "Clear heading structure present"
+        : "Missing clear headings"
     );
 
     if (isLikelySPA) {
-      insights.push("Dynamic rendering limits static audit accuracy");
+      insights.push("Dynamic rendering reduces audit accuracy");
     }
 
-    // --- RETURN ---
     return {
       score,
       issues,
@@ -148,11 +177,12 @@ export async function runAudit(url) {
         isLikelySPA,
       },
     };
+
   } catch (error) {
     return {
-      score: 30,
-      issues: ["Failed to fully analyze site", error.message],
-      insights: ["Possible CORS restriction or blocked request"],
+      score: 50,
+      issues: ["Audit failed", error.message],
+      insights: ["Likely CORS or network issue"],
       metadata: {},
     };
   }
